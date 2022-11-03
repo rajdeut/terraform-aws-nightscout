@@ -1,0 +1,22 @@
+[
+    {
+        "name": "MONGODB_URI",
+        "value": "mongodb+srv://username:password@mongodb-url.com"
+    },
+    {
+        "name": "API_SECRET",
+        "value": "set-your-api-secret"
+    },
+    {
+        "name": "DISPLAY_UNITS",
+        "value": "mmol"
+    },
+    {
+        "name": "ENABLE",
+        "value": "careportal basal dbsize rawbg iob maker bridge cob bwp cage iage sage boluscalc pushover treatmentnotify mmconnect loop pump profile food openaps bage alexa override cors"
+    },
+    {
+        "name": "AUTH_DEFAULT_ROLES",
+        "value": "readable"
+    }
+]

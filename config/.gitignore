@@ -1,0 +1,5 @@
+*key
+*.pub
+aws-credentials
+aws-config
+nightscout.config.json
