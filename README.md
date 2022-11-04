@@ -107,12 +107,13 @@ When creating a new configuration option, make sure that it starts with `/nights
 eg. `/nightscout/BG_HIGH`
 
 The following is an example of what the page should look like:
-Name: `/nightscout/BG_HIGH`
-Tier: `Standard`
-Type: `String`
-Data type: `text`
-Value: `200`
-
+```
+Name: /nightscout/BG_HIGH
+Tier: Standard
+Type: String
+Data type: text
+Value: 200
+```
 
 ### Connect GitHub to AWS
 Now that Nightscout is configured we need to connect it to GitHub to pull your updated Nightscout code onto the server.
