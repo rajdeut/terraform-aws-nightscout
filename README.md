@@ -6,6 +6,10 @@ While every effort has been made to ensure only free-tier resources are used, th
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](./LICENSE)
 
+---
+
+## Pre-build setup
+
 ### Install Terraform 
 Detailed instructions on how to install Terraform can be found on their website here: [https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
@@ -51,11 +55,11 @@ hooks:
 4. Change the region to the one closest to your home. A list of region options is available [here](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-regions).
 	- Be sure to use the region's *Code* value
 	   eg. `us-east-1` or `eu-west-1`
-
-### Build infrastructure
+---
+## Build infrastructure
 1. Open a new terminal/shell
 	- macOS - Terminal (in Applications/Utilities)
-	- Linux - I doubt you're reading this you already know what you're doing
+	- Linux - I doubt you're reading this, you already know what you're doing
 	- Windows - Command Prompt? ¯\_(ツ)_/¯ 
 2. Change into the folder where you have downloaded/cloned the Nightscout Infrastructure repo into
    eg. `cd ~/Documents/terraform-aws-nightscout`
@@ -84,7 +88,7 @@ hooks:
 
 ---
 
-## Post build steps
+## Post-build steps
 
 ### Configure Nightscout
 Now that the infrastructure has been setup in AWS you can setup Nightscout to your liking.
