@@ -1,14 +1,14 @@
 # Setup env vars in SSM
 locals {
-  params = jsondecode(file("${path.module}/../../config/nightscout.config.json"))
+  params = jsondecode(fileexists("${path.module}/../../config/nightscout.config.json") ? file("${path.module}/../../config/nightscout.config.json") : "{}")
 }
 
 resource "aws_ssm_parameter" "config_params" {
-  for_each = { for idx, v in local.params : idx => v }
-  name     = "/nightscout/${upper(each.value.name)}"
-  type     = "String"
-  value    = each.value.value
-  tags     = var.tags
+  for_each  = { for idx, v in local.params : idx => v }
+  name      = "/nightscout/${upper(each.value.name)}"
+  type      = "String"
+  value     = each.value.value
+  tags      = var.tags
   overwrite = true
 }
 
