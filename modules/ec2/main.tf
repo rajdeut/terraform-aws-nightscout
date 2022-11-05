@@ -25,16 +25,12 @@ resource "aws_instance" "ec2_instance" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
   subnet_id     = var.public_subnet_id
-  # security_groups             = [aws_security_group.ec2_security_group.name]
   vpc_security_group_ids      = [aws_security_group.ec2_security_group.id]
   associate_public_ip_address = true
   key_name                    = aws_key_pair.ec2_key_pair.key_name
   iam_instance_profile        = var.instance_profile_name
   tags                        = merge(var.tags, { Name = "nightscout__ec2_instance" })
   user_data                   = local.user_data_script_final
-  # user_data = replace(
-  #   replace(file("${path.module}/resources/user_data.sh"), "[[AFTER_INSTALL]]", file("${path.module}/resources/app_spec_scripts/after_install.sh"))
-  # , "[[CRON_SSM]]", file("${path.module}/resources/cron_ssm.sh"))
 }
 
 resource "aws_key_pair" "ec2_key_pair" {

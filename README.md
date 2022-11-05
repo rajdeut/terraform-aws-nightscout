@@ -1,4 +1,4 @@
-# Terraform for Nightscout running on AWS (free-tier*)
+# Terraform for Nightscout running on AWS (free-tier)
 
 This Terraform project has been developed to deploy a Nightscout instance on AWS using free-tier resources that best replicate the operating experience of Heroku.
 
