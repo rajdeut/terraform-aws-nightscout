@@ -4,11 +4,12 @@ sudo yum update -y
 # Create tmp folder that mongo util needs
 mkdir /tmp/public
 
-# Add Node repo
-curl -fsSL https://rpm.nodesource.com/setup_14.x | bash -
-
 # Package installs
-sudo yum install nodejs git jq ruby wget -y
+sudo yum install git jq ruby wget -y
+
+# Node Install
+sudo yum install https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm -y
+sudo yum install nodejs -y --setopt=nodesource-nodejs.module_hotfixes=1
 
 # Code Agent install
 cd /home/ec2-user
