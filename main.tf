@@ -19,7 +19,14 @@ locals {
 # S3 Bucket for codedeploy/codepipeline
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket_prefix = "nightscout-codepipeline-"
-  tags = var.tags
+  tags          = var.tags
+}
+# Set Bucker Ownership to apply ACL
+resource "aws_s3_bucket_ownership_controls" "codepipeline_bucket_ownership" {
+  bucket = aws_s3_bucket.codepipeline_bucket.id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
 }
 resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
   bucket = aws_s3_bucket.codepipeline_bucket.id
@@ -29,9 +36,9 @@ resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
 
 # Nightscout config in SSM
 module "ssm" {
-  source        = "./modules/ssm"
-  port          = var.port
-  tags          = local.tags
+  source = "./modules/ssm"
+  port   = var.port
+  tags   = local.tags
 }
 
 
