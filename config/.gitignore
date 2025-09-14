@@ -1,5 +1,4 @@
 *key
 *.pub
-aws-credentials
-aws-config
+gcp-credentials.json
 nightscout.config.json

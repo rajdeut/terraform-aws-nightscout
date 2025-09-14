@@ -1,3 +1,15 @@
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP region"
+  type        = string
+  default     = "us-central1"
+}
+
+
 variable "domain" {
   default     = null
   description = "Domain name Nightscout will run on"
@@ -8,42 +20,21 @@ variable "https" {
   description = "HTTPS enabled. Requires SSL installed to enable correctly"
 }
 
-variable "display_units" {
-  description = "mg/dl or mmol/L"
-  default     = "mmol"
-  validation {
-    condition = anytrue([
-      var.display_units == "mmol",
-      var.display_units == "mgl"
-    ])
-    error_message = "Must be a valid display units value. Either 'mg/dl' or 'mmol/L'."
-  }
-}
-
-variable "ec2_ssh_public_key_path" {
-  description = "Public key to install on EC2"
-  default     = "config/nightscout-ec2-key.pub"
+variable "compute_ssh_public_key_path" {
+  description = "Public key to install on Compute Engine instance"
+  default     = "config/nightscout-compute-key.pub"
 }
 
 variable "my_ip" {
-  description = "Your IP address to access the EC2 via SSH"
+  description = "Your IP address to access the Compute Engine instance via SSH"
   default     = null
 }
 
-variable "git_repo" {
-  description = "The name of your Nightscout repository on GitHub, eg 'cgm-remote-monitor'"
-  default     = "cgm-remote-monitor"
-}
-
-variable "git_owner" {
-  description = "Your GitHub username"
-}
-
-variable "tags" {
+variable "labels" {
   type = map(string)
   default = {
     env = "prod"
     app = "nightscout"
   }
-  description = "tags for all the resources, if any"
+  description = "Labels for all the resources"
 }

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "api_secret",
+    "value": "your-secure-api-secret-here-minimum-12-characters"
+  },
+  {
+    "name": "mongodb_uri",
+    "value": "mongodb+srv://username:password@cluster.mongodb.net/nightscout?retryWrites=true&w=majority"
+  },
+  {
+    "name": "base_url",
+    "value": "https://nightscout.yourdomain.com"
+  },
+  {
+    "name": "enable",
+    "value": "careportal basal dbsize rawbg iob maker bridge loop pump openaps"
+  },
+  {
+    "name": "time_format",
+    "value": "24"
+  },
+  {
+    "name": "night_mode",
+    "value": "off"
+  },
+  {
+    "name": "show_rawbg",
+    "value": "never"
+  },
+  {
+    "name": "custom_title",
+    "value": "Nightscout"
+  },
+  {
+    "name": "theme",
+    "value": "default"
+  },
+  {
+    "name": "alarm_types",
+    "value": "simple"
+  },
+  {
+    "name": "alarm_urgent_high",
+    "value": "on"
+  },
+  {
+    "name": "alarm_high",
+    "value": "on"
+  },
+  {
+    "name": "alarm_low",
+    "value": "on"
+  },
+  {
+    "name": "alarm_urgent_low",
+    "value": "on"
+  }
+]

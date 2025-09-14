@@ -1,83 +1,85 @@
 terraform {
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "4.38.0"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
     }
   }
 }
 
+# Get available zones in the region and select the first one
+data "google_compute_zones" "available" {
+  region = var.region
+}
+
 # Local vars
 locals {
-  tags = {
+  labels = {
     env = "prod"
     app = "nightscout"
   }
   port = var.https ? 443 : 80
+  zone = data.google_compute_zones.available.names[0]
 }
 
 
-# S3 Bucket for codedeploy/codepipeline
-resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket_prefix = "nightscout-codepipeline-"
-  tags          = var.tags
+# Cloud Storage bucket for deployments (replaces S3)
+resource "google_storage_bucket" "deployment_bucket" {
+  name     = "nightscout-deployments-${random_id.bucket_suffix.hex}"
+  location = var.region
+  labels   = local.labels
+
+  uniform_bucket_level_access = true
 }
-# resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
-#   bucket = aws_s3_bucket.codepipeline_bucket.id
-#   acl    = "private"
-# }
+
+resource "random_id" "bucket_suffix" {
+  byte_length = 8
+}
 
 
-# Nightscout config in SSM
-module "ssm" {
-  source = "./modules/ssm"
+# Nightscout config in Secret Manager
+module "secrets" {
+  source = "./modules/secrets"
+  region = var.region
   port   = local.port
   domain = var.domain
-  tags   = local.tags
+  labels = local.labels
 }
 
 
-# IAM role & policy for EC2 to access SSM & S3
-module "ec2_role" {
-  source                  = "./modules/ec2_role"
-  codepipeline_bucket_arn = aws_s3_bucket.codepipeline_bucket.arn
-  tags                    = local.tags
+# Service account for Compute Engine instance
+module "service_account" {
+  source     = "./modules/service_account"
+  project_id = var.project_id
+  labels     = local.labels
 }
 
 
-# VPC, IG & Routing
-module "vpc" {
-  source = "./modules/vpc"
-  tags   = local.tags
+# VPC network & subnets
+module "network" {
+  source = "./modules/network"
+  region = var.region
+  ssh_source_ranges = var.my_ip != null ? ["${var.my_ip}/32"] : ["0.0.0.0/0"]
+  labels = local.labels
 }
 
-# EC2 instance to run Nightscout
-module "ec2" {
-  source = "./modules/ec2"
+# Compute Engine instance to run Nightscout
+module "compute" {
+  source = "./modules/compute"
 
-  vpc_id                = module.vpc.vpc_id
-  public_subnet_id      = module.vpc.public_subnet_id
-  ssh_public_key_path   = var.ec2_ssh_public_key_path
-  your_ip_address       = var.my_ip
-  port                  = local.port
-  domain                = var.domain
-  instance_profile_name = module.ec2_role.instance_profile.name
-  tags                  = local.tags
-}
-
-
-# CodeDeploy
-module "codedeploy" {
-  source = "./modules/codedeploy"
-  tags   = local.tags
-}
-
-# CodePipeline to deploy from GitHub to EC2
-module "codepipeline" {
-  source              = "./modules/codepipeline"
-  codedeploy_app_name = module.codedeploy.app_name
-  git_owner           = var.git_owner
-  git_repo            = var.git_repo
-  artifact_bucket     = aws_s3_bucket.codepipeline_bucket
-  tags                = local.tags
+  network_name        = module.network.network_name
+  subnet_name         = module.network.subnet_name
+  ssh_public_key_path = var.compute_ssh_public_key_path
+  your_ip_address     = var.my_ip
+  port                = local.port
+  domain              = var.domain
+  service_account_email = module.service_account.email
+  labels              = local.labels
+  project_id          = var.project_id
+  region              = var.region
+  zone                = local.zone
 }
