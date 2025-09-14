@@ -1,10 +1,10 @@
 variable "vpc_id" {
-  type = string
+  type        = string
   description = "The VPC ID to place the EC2 instance"
 }
 
 variable "public_subnet_id" {
-  type = string
+  type        = string
   description = "The Public Subnet to place the EC2 instance"
 }
 
@@ -27,6 +27,18 @@ variable "ssh_public_key_path" {
 variable "your_ip_address" {
   type        = string
   description = "Your IP address to access the EC2 via SSH"
+  default     = null
+}
+
+variable "port" {
+  type        = number
+  description = "Port number to run web server on"
+  default     = 80
+}
+
+variable "domain" {
+  type        = string
+  description = "Domain to run Nightscout on"
   default     = null
 }
 

@@ -23,7 +23,33 @@ resource "aws_ssm_parameter" "port_param" {
 resource "aws_ssm_parameter" "insecure_use_http_param" {
   name      = "/nightscout/INSECURE_USE_HTTP"
   type      = "String"
-  value     = "true"
+  value     = var.port == 80 ? "true" : "false"
+  tags      = var.tags
+  overwrite = true
+}
+
+# SSL vars
+resource "aws_ssm_parameter" "ssl_key_param" {
+  count     = var.port == 443 && var.domain != null ? 1 : 0
+  name      = "/nightscout/SSL_KEY"
+  type      = "String"
+  value     = "/etc/letsencrypt/live/${lower(var.domain)}/privkey.pem"
+  tags      = var.tags
+  overwrite = true
+}
+resource "aws_ssm_parameter" "ssl_cert_param" {
+  count     = var.port == 443 && var.domain != null ? 1 : 0
+  name      = "/nightscout/SSL_CERT"
+  type      = "String"
+  value     = "/etc/letsencrypt/live/${lower(var.domain)}/fullchain.pem"
+  tags      = var.tags
+  overwrite = true
+}
+resource "aws_ssm_parameter" "ssl_ca_param" {
+  count     = var.port == 443 && var.domain != null ? 1 : 0
+  name      = "/nightscout/SSL_CA"
+  type      = "String"
+  value     = "/etc/letsencrypt/live/${lower(var.domain)}/chain.pem"
   tags      = var.tags
   overwrite = true
 }

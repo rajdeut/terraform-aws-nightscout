@@ -1,6 +1,12 @@
 #!/bin/bash
 sudo yum update -y
 
+# Make a crontab (if doesnt exist)
+crontab -l; echo "# root crontab" | crontab -
+
+# LetsEncrypt
+[[LETSENCRYPT]]
+
 # Create tmp folder that mongo util needs
 mkdir /tmp/public
 
@@ -67,4 +73,4 @@ sudo chmod +x /opt/codedeploy-agent/scripts/*.sh
 # Create cronjob that gets env vars from SSM every 10 minutes & restarts if changes
 # Removed, only get 20,000 calls to AWS Key Management Service per month & prev SSM was storing as SecureString.
 # I think we can revert this after updating SSM.
-crontab -l ; echo "*/10 * * * * sudo /opt/codedeploy-agent/scripts/cron_ssm.sh >/dev/null 2>&1" | crontab -
+(crontab -l && echo "*/10 * * * * sudo /opt/codedeploy-agent/scripts/cron_ssm.sh >/dev/null 2>&1") | crontab -

@@ -18,12 +18,12 @@ If doing this I suggest forking & modifying this repo instead of cloning it.
 ### Terraform details
 #### Inputs
 - `display_units` [mmol|mgl] (default: mmol) - The blood glucose level of measurement to be used
+- `domain` (optional) - The domain name that will be pointing to your Nightscout instance. *(Required if using HTTPS and wanting automatic SSL generation)*
 - `ec2_ssh_public_key_path` (default: config/nightscout-ec2-key.pub) - Path to the public key to be installed on the Nightscout server
 - `git_owner` (**required**) - Your GitHub username
 - `git_repo` (default: cgm-remote-monitor) - The name of the GitHub Nightscout repository to connect
+- `https` [true|false] (default: false) - If true, sets the Nightscout port to 443 instead of 80. When used with `domain` will generate an SSL via LetsEncrypt
 - `my_ip` (optional) - The IP address to whitelist for SSH access to the Nightscout server
-- `port` (default: 80) - The webserver port Nightscout will operate on
-
 
 #### Outputs
 - `nightscout_url` - The IP address for the Nightscout instance that has been created
