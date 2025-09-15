@@ -29,76 +29,74 @@ While every effort has been made to ensure only free-tier resources are used, th
    - **Authenticate and configure**:
      - Run `gcloud auth login` to authenticate
      - Set your default project: `gcloud config set project YOUR_PROJECT_ID` (replace with your actual project ID)
-     - Enable required APIs: `gcloud services enable compute.googleapis.com secretmanager.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com`
+     - Enable required APIs: `gcloud services enable run.googleapis.com secretmanager.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com`
 
 2. **Terraform Installation**:
    - Install [Terraform](https://www.terraform.io/downloads.html) (version 1.0+)
 
 3. **Configuration Files**:
-   - Copy `terraform.tfvars.example` to `terraform.tfvars` and update with your values
-   - Copy `config/nightscout-config-example.json` to `config/nightscout.config.json` and update with your Nightscout settings
-   - Generate SSH keys: `ssh-keygen -t rsa -f config/nightscout-compute-key`
+   - Copy `config/nightscout.env.example` to `config/nightscout.env` and update with your Nightscout settings
 
 ### Installation
 1. Clone this repository
 2. Complete the prerequisites above
 3. Run `terraform init`
-4. Run `terraform plan` to review the infrastructure
-5. Run `terraform apply` to deploy
+4. Run `terraform plan -var="project_id=your-gcp-project-id"` to review the infrastructure
+5. Run `terraform apply -var="project_id=your-gcp-project-id"` to deploy. *(This may take 10+ minutes to complete)*
 
 The project is configured to access GCP credentials from `config/gcp-credentials.json` rather than system defaults. If you're experienced with Terraform and GCP, you may modify the `providers.tf` file to use different authentication methods.
 
 ### Terraform details
 #### Inputs
 - `project_id` (**required**) - Your GCP Project ID
-- `region` (default: us-central1) - The GCP region to deploy resources (first available zone is automatically selected)
-- `domain` (optional) - The domain name that will be pointing to your Nightscout instance. *(Required if using HTTPS and wanting automatic SSL generation)*
-- `https` [true|false] (default: false) - If true, sets the Nightscout port to 443 instead of 80. When used with `domain` will generate an SSL via Let's Encrypt
-- `compute_ssh_public_key_path` (default: config/nightscout-compute-key.pub) - Path to the public key to be installed on the Nightscout server
-- `my_ip` (optional) - The IP address to whitelist for SSH access to the Nightscout server
+- `region` (optional, default: us-central1) - The GCP region to deploy the Cloud Run service
 - `labels` (optional) - Map of labels to apply to all resources for organization
 
 #### Outputs
-- `compute_public_ip` - The public IP address for the Nightscout instance
-- `application_url` - The URL to access your Nightscout application
-- `ssh_command` - The gcloud command to SSH into your server
-
-### Free Tier Resources Used
-- **Compute Engine**: e2-micro instance (744 hours/month free)
-- **Secret Manager**: Up to 6 secrets (free tier)
-- **Cloud Storage**: 5GB free storage for deployment artifacts
-- **Networking**: 1GB egress per month (may exceed for active Nightscout usage)
-
-### Automated Code Deployment
-The GCP version includes **automated daily deployments** that replace AWS CodePipeline:
-
-- **Daily Check**: Runs at 2 AM daily via cron job
-- **Smart Updates**: Only deploys when new commits are available on GitHub
-- **Safe Process**: Stops service → pulls code → installs deps → syncs config → restarts service
-- **Full Logging**: All deployment activity logged to `/var/log/nightscout-auto-deploy.log`
-
-**Manual Deployment Commands:**
-```bash
-# Force immediate deployment check
-gcloud compute ssh nightscout-server --command="sudo /opt/nightscout/scripts/auto_deploy.sh"
-
-# View deployment logs
-gcloud compute ssh nightscout-server --command="sudo tail -f /var/log/nightscout-auto-deploy.log"
-
-# Check last 20 deployment log entries
-gcloud compute ssh nightscout-server --command="sudo tail -20 /var/log/nightscout-auto-deploy.log"
-```
+- `application_url` - The HTTPS URL to access your Nightscout application
 
 ### Post-Deployment
+
 After deployment, you can:
-1. **Get your static IP**: Note the `compute_public_ip` from terraform output
-2. **Configure DNS** (if using a domain):
-   - Point your domain to the static IP address from step 1
-   - Wait for DNS propagation (usually 5-60 minutes)
-   - SSH into server and run: `sudo /opt/nightscout/scripts/setup_ssl.sh`
-3. **Access your Nightscout**: Use the `application_url` output (HTTP initially, HTTPS after SSL setup)
-4. **Monitor and manage**:
-   - SSH into server: Use the `ssh_command` output
-   - Monitor Nightscout logs: `sudo journalctl -u nightscout.service -f`
-   - Monitor deployment logs: `sudo tail -f /var/log/nightscout-auto-deploy.log`
-   - Update configurations: Modify secrets in Google Secret Manager (auto-syncs hourly)
+
+1. **Access your Nightscout**: Use the `application_url` output (HTTPS by default)
+
+2. **Use your own domain** (optional):
+   - **Point your domain**: Create a CNAME record pointing to your Cloud Run URL (without https://)
+     ```
+     CNAME: nightscout.yourdomain.com → your-service-hash-region.a.run.app
+     ```
+   - **Map the domain**: Run this command to map your domain to Cloud Run:
+     ```bash
+     gcloud run domain-mappings create --service=nightscout --domain=nightscout.yourdomain.com --region=your-region
+     ```
+   - **Update BASE_URL** (optional): Add this to your `config/nightscout.env`:
+     ```
+     BASE_URL="https://nightscout.yourdomain.com"
+     ```
+   - Then run `terraform apply` to update the configuration.
+
+3. **Monitor the service**:
+   - View logs: `gcloud logs tail --follow --project=your-project-id --filter="resource.labels.service_name=nightscout"`
+   - Check service status: `gcloud run services describe nightscout --region=your-region`
+
+4. **Update configurations**:
+   - Edit `config/nightscout.env` and run `terraform apply` again
+   - Or modify secrets directly in Google Secret Manager console
+
+### Free Tier Protection
+
+This deployment includes built-in controls to stay within Google Cloud's free tier:
+
+- **Max 3 concurrent instances**: Prevents excessive scaling
+- **Scales to zero**: No charges when not in use
+- **CPU throttling enabled**: Reduces compute costs
+- **Resource limits**: 1 vCPU and 1GiB memory per instance (free tier limits)
+- **Request limits**: Designed to stay within 2 million requests/month free allowance
+
+**Monthly free tier includes:**
+
+- 2 million requests
+- 400,000 GiB-seconds of memory
+- 200,000 vCPU-seconds of compute time
+- 1 GiB of outbound data transfer

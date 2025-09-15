@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is a Terraform infrastructure project that deploys Nightscout (a continuous glucose monitoring web application) on Google Cloud Platform (GCP) using free-tier resources. The infrastructure provides a simple, cost-effective hosting solution using GCP services.
+This is a Terraform infrastructure project that deploys Nightscout (a continuous glucose monitoring web application) on Google Cloud Platform (GCP) using Cloud Run. The infrastructure provides a simple, serverless hosting solution that scales automatically and includes HTTPS by default.
 
 ## Common Commands
 
@@ -11,14 +11,14 @@ This is a Terraform infrastructure project that deploys Nightscout (a continuous
 - `terraform init` - Initialize Terraform (required after cloning or when changing providers)
 - `terraform plan` - Preview changes before applying
 - `terraform apply` - Deploy the infrastructure
-- `terraform apply -var="project_id=your-gcp-project" -var="domain=example.com" -var="my_ip=x.x.x.x" -var="https=true"` - Deploy with variables
+- `terraform apply -var="project_id=your-gcp-project"` - Deploy with project ID
 - `terraform destroy` - Remove all infrastructure
 
 ### GCP Setup Requirements
 - Install the Google Cloud SDK: `curl https://sdk.cloud.google.com | bash`
 - Authenticate: `gcloud auth login`
 - Set project: `gcloud config set project YOUR_PROJECT_ID`
-- Enable required APIs: `gcloud services enable compute.googleapis.com secretmanager.googleapis.com`
+- Enable required APIs: `gcloud services enable run.googleapis.com secretmanager.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com`
 - Create service account key and place in `config/gcp-credentials.json`
 
 ## Architecture Overview
@@ -26,77 +26,72 @@ This is a Terraform infrastructure project that deploys Nightscout (a continuous
 ### Module Structure
 The project uses a modular Terraform architecture with the following components:
 
-1. **Network Module** (`modules/network/`) - Creates the network infrastructure:
-   - VPC network with regional routing
-   - Subnet with CIDR 10.0.1.0/24
-   - Firewall rules for HTTP/HTTPS, SSH, and MongoDB access
+1. **Cloud Run Module** (`modules/cloud_run/`) - Manages the serverless container deployment:
+   - Cloud Run service running the official Nightscout Docker image
+   - Automatic scaling with configurable max instances
+   - Environment variables sourced from Secret Manager
+   - Public access configured with IAM policies
 
-2. **Compute Module** (`modules/compute/`) - Manages the compute resources:
-   - Ubuntu 22.04 LTS Compute Engine instance running Nightscout
-   - e2-micro instance type (free tier eligible)
-   - Automated startup script with Node.js and Nightscout installation
-   - SSH key management via metadata
+2. **Secrets Module** (`modules/secrets/`) - Stores Nightscout configuration in Google Secret Manager
 
-3. **Secrets Module** (`modules/secrets/`) - Stores Nightscout configuration in Google Secret Manager
-
-4. **Service Account Module** (`modules/service_account/`) - Service account and IAM roles for Compute Engine to access Secret Manager
+3. **Service Account Module** (`modules/service_account/`) - Service account and IAM roles for Cloud Run to access Secret Manager
 
 ### Key Infrastructure Components
 - **Cloud Storage bucket** for deployment artifacts (prefix: "nightscout-deployments-")
-- **Compute Engine instance** running on free-tier with public IP
-- **Firewall rules** allowing HTTP (80), HTTPS (443), SSH (22), and MongoDB (27017)
-- **Let's Encrypt SSL** automatic generation when HTTPS is enabled with domain
+- **Cloud Run service** running the Nightscout Docker container
+- **HTTPS by default** with automatic SSL certificate management by Google
 - **Secret Manager** for secure configuration storage
-- **Automated deployments** via daily cron job that checks GitHub for updates
+- **Automatic scaling** based on request traffic
 
 ### Configuration Management
 - GCP credentials stored in `config/gcp-credentials.json`
-- SSH public key path: `config/nightscout-compute-key.pub` (default)
+- Nightscout configuration in `config/nightscout.env` (simple KEY="value" format)
 - All resources labeled with environment and application identifiers
+
+### Configuration Format
+The `config/nightscout.env` file uses a simple environment variable format:
+```bash
+# Comments start with #
+MONGODB_URI="your-mongodb-connection-string"
+API_SECRET="your-secret-key"
+CUSTOM_TITLE="Your Nightscout Site"
+# Enable features
+ENABLE="careportal boluscalc food bwp cage sage"
+```
+
+This format is much easier to read and edit compared to JSON. Comments are supported using `#` at the beginning of a line.
 
 ## Important Variables
 - `project_id` (required) - GCP Project ID
-- `region` (optional, default: us-central1) - GCP region for resources (first zone auto-selected)
-- `domain` (optional) - Domain name for HTTPS with automatic SSL
-- `https` (true/false) - Enables HTTPS on port 443 vs HTTP on port 80
-- `my_ip` (optional) - IP address for SSH access restriction
-- `compute_ssh_public_key_path` - Path to SSH public key file
+- `region` (optional, default: us-central1) - GCP region for Cloud Run service
 - `labels` (optional) - Map of labels for resource organization
 
 ## Development Notes
 - Provider version uses Google provider ~> 5.0
-- Uses startup script with template replacement for automated setup
+- Uses official Nightscout Docker image from Docker Hub
 - Resource naming convention: "nightscout-[resource_type]"
-- All infrastructure designed for GCP free-tier usage
-- Ubuntu 22.04 LTS used as base OS for better compatibility
+- Serverless architecture with automatic scaling
+- HTTPS enabled by default with Google-managed SSL certificates
 
-## Automated Deployment System
-The infrastructure includes a built-in automated deployment system that replaces AWS CodePipeline:
+## Cloud Run Benefits
+- **Serverless**: No server management required
+- **Automatic HTTPS**: SSL certificates managed by Google
+- **Auto-scaling**: Scales to zero when not in use, scales up based on traffic
+- **Cost-effective**: Pay only for requests and actual usage
+- **No firewall management**: Cloud Run handles all networking
+- **Container-based**: Uses the official Nightscout Docker image
+- **Free tier protection**: Built-in controls to prevent exceeding Google Cloud free limits
 
-### Deployment Schedule
-- **Frequency**: Daily at 2:00 AM (configurable via cron)
-- **Script**: `/opt/nightscout/scripts/auto_deploy.sh`
-- **Logging**: Full deployment logs at `/var/log/nightscout-auto-deploy.log`
+## Free Tier Protection
+The deployment includes automatic controls to stay within Google Cloud's free tier:
 
-### Deployment Process
-1. **Update Check**: Fetches from GitHub and compares commit hashes
-2. **Conditional Deploy**: Only proceeds if new commits are available
-3. **Safe Process**:
-   - Stops Nightscout service
-   - Pulls latest code (`git reset --hard origin/master`)
-   - Installs/updates NPM dependencies
-   - Syncs configuration from Secret Manager
-   - Restarts service and validates it's running
-4. **Error Handling**: Automatic rollback if deployment fails
+- **Scaling limits**: Maximum 3 concurrent instances, scales to zero when idle
+- **Resource limits**: 1 vCPU and 1GiB memory per instance (free tier maximums)
+- **CPU throttling**: Enabled to reduce compute costs
+- **Request optimization**: Designed for 2 million requests/month free allowance
 
-### Manual Operations
-```bash
-# Force deployment check
-sudo /opt/nightscout/scripts/auto_deploy.sh
-
-# View deployment logs
-sudo tail -f /var/log/nightscout-auto-deploy.log
-
-# Check service status
-sudo systemctl status nightscout.service
-```
+**Google Cloud Free Tier includes:**
+- 2 million Cloud Run requests per month
+- 400,000 GiB-seconds of memory per month
+- 200,000 vCPU-seconds of compute per month
+- 1 GiB outbound data transfer per month
