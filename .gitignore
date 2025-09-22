@@ -2,8 +2,9 @@ terraform.tfstate
 terraform.tfstate.backup
 .terraform*
 .DS_store
-# terraform.tfvars not needed - just pass project_id via command line
+terraform.tfvars
 
 # Ignore actual config files containing secrets
 config/nightscout.env
-config/gcp-credentials.json
+config/id_rsa*
+config/nightscout_ssh*

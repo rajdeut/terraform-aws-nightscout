@@ -1,0 +1,19 @@
+# Optional Terraform variables for customization
+# Copy this file to terraform.tfvars and uncomment/modify as needed
+
+# OCI region for deployment (default: us-ashburn-1)
+# region = "us-phoenix-1"
+
+# Path to SSH public key (default: ./config/nightscout_ssh.pub)
+# ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# CIDR block allowed SSH access (default: 0.0.0.0/0 - allows all)
+# ssh_allowed_cidr = "203.0.113.0/24"
+
+# Custom resource tags
+# tags = {
+#   Environment = "development"
+#   Application = "nightscout"
+#   ManagedBy   = "terraform"
+#   Owner       = "your-name"
+# }

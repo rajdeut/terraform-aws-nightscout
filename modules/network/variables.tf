@@ -3,9 +3,10 @@ variable "compartment_id" {
   type        = string
 }
 
-variable "nightscout_env_content" {
-  description = "Content of the Nightscout .env file"
+variable "ssh_allowed_cidr" {
+  description = "CIDR block allowed to access SSH (default allows all)"
   type        = string
+  default     = "0.0.0.0/0"
 }
 
 variable "tags" {

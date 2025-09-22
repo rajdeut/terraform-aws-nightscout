@@ -1,8 +1,8 @@
 terraform {
   required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = ">= 7.0.0"
+    oci = {
+      source  = "oracle/oci"
+      version = "~> 5.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -11,52 +11,58 @@ terraform {
   }
 }
 
-# Local vars
+# ============================================================================
+# Local Configuration
+# ============================================================================
+
 locals {
-  labels = {
-    env = "prod"
-    app = "nightscout"
+  # Standard tags applied to all resources
+  tags = {
+    Environment = "production"
+    Application = "nightscout"
+    ManagedBy   = "terraform"
   }
+
+  # Read Nightscout environment configuration
+  nightscout_env_content = fileexists("config/nightscout.env") ? file("config/nightscout.env") : ""
 }
 
+# ============================================================================
+# Infrastructure Modules
+# ============================================================================
 
-# Cloud Storage bucket for deployments (replaces S3)
-resource "google_storage_bucket" "deployment_bucket" {
-  name     = "nightscout-deployments-${random_id.bucket_suffix.hex}"
-  location = var.region
-  labels   = local.labels
+# Create dedicated compartment for resource isolation
+module "compartment" {
+  source = "./modules/compartment"
 
-  uniform_bucket_level_access = true
+  tags = local.tags
 }
 
-resource "random_id" "bucket_suffix" {
-  byte_length = 8
-}
-
-
-# Nightscout config in Secret Manager
+# Secure secrets management with OCI Vault
 module "secrets" {
   source = "./modules/secrets"
-  region = var.region
-  labels = local.labels
+
+  compartment_id         = module.compartment.compartment_id
+  nightscout_env_content = local.nightscout_env_content
+  tags                   = local.tags
 }
 
+# Network infrastructure (VCN, subnet, security lists)
+module "network" {
+  source = "./modules/network"
 
-# Service account for Cloud Run service
-module "service_account" {
-  source     = "./modules/service_account"
-  project_id = var.project_id
-  labels     = local.labels
+  compartment_id   = module.compartment.compartment_id
+  ssh_allowed_cidr = var.ssh_allowed_cidr
+  tags             = local.tags
 }
 
-# Cloud Run service to run Nightscout
-module "cloud_run" {
-  source                = "./modules/cloud_run"
-  project_id            = var.project_id
-  region                = var.region
-  service_account_email = module.service_account.email
-  secret_names          = module.secrets.secret_names
-  labels                = local.labels
+# Compute instance with automatic secret rotation
+module "compute" {
+  source = "./modules/compute"
 
-  depends_on = [module.secrets]
+  compartment_id      = module.compartment.compartment_id
+  subnet_id           = module.network.subnet_id
+  ssh_public_key_path = var.ssh_public_key_path
+  secret_id           = module.secrets.secret_id
+  tags                = local.tags
 }

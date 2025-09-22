@@ -1,0 +1,235 @@
+#cloud-config
+
+packages:
+  - docker
+  - docker-compose
+  - python3-oci-cli
+
+runcmd:
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Add oracle user to docker group
+  - usermod -aG docker oracle
+
+  # Create nightscout directory
+  - mkdir -p /opt/nightscout
+  - chown oracle:oracle /opt/nightscout
+
+  # Create script to fetch environment variables from OCI Secrets
+  - |
+    cat > /opt/nightscout/fetch-secrets.sh << 'EOF'
+    #!/bin/bash
+    SECRET_ID="${secret_id}"
+    SECRET_CONTENT=$(oci secrets secret-bundle get --secret-id "$SECRET_ID" --query 'data."secret-bundle-content".content' --raw-output)
+    echo "$SECRET_CONTENT" | base64 -d > /opt/nightscout/.env
+    chmod 600 /opt/nightscout/.env
+    chown oracle:oracle /opt/nightscout/.env
+    EOF
+
+  # Make script executable and run it
+  - chmod +x /opt/nightscout/fetch-secrets.sh
+  - /opt/nightscout/fetch-secrets.sh
+
+  # Create automatic secret rotation script
+  - |
+    cat > /opt/nightscout/rotate-secrets.sh << 'EOF'
+    #!/bin/bash
+
+    LOG_FILE="/var/log/nightscout-secret-rotation.log"
+    SECRET_ID="${secret_id}"
+    ENV_FILE="/opt/nightscout/.env"
+    CHECKSUM_FILE="/opt/nightscout/.env.checksum"
+
+    log() {
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    }
+
+    log "Starting secret rotation check"
+
+    # Fetch current secret from OCI
+    SECRET_CONTENT=$(oci secrets secret-bundle get --secret-id "$SECRET_ID" --query 'data."secret-bundle-content".content' --raw-output 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$SECRET_CONTENT" ]; then
+        log "ERROR: Failed to fetch secret from OCI Vault"
+        exit 1
+    fi
+
+    # Create temporary file with new content
+    TEMP_FILE=$(mktemp)
+    echo "$SECRET_CONTENT" | base64 -d > "$TEMP_FILE"
+
+    # Calculate checksum of new content
+    NEW_CHECKSUM=$(sha256sum "$TEMP_FILE" | cut -d' ' -f1)
+
+    # Read stored checksum if exists
+    OLD_CHECKSUM=""
+    if [ -f "$CHECKSUM_FILE" ]; then
+        OLD_CHECKSUM=$(cat "$CHECKSUM_FILE")
+    fi
+
+    # Compare checksums
+    if [ "$NEW_CHECKSUM" != "$OLD_CHECKSUM" ]; then
+        log "Secret change detected - updating configuration"
+
+        # Backup current env file
+        cp "$ENV_FILE" "$ENV_FILE.backup.$(date +%s)"
+
+        # Update env file with new content
+        cp "$TEMP_FILE" "$ENV_FILE"
+        chmod 600 "$ENV_FILE"
+        chown oracle:oracle "$ENV_FILE"
+
+        # Store new checksum
+        echo "$NEW_CHECKSUM" > "$CHECKSUM_FILE"
+
+        # Restart Nightscout container
+        cd /opt/nightscout
+        /usr/bin/docker-compose restart nightscout
+
+        if [ $? -eq 0 ]; then
+            log "Successfully updated secrets and restarted Nightscout"
+        else
+            log "ERROR: Failed to restart Nightscout container"
+            # Restore backup
+            cp "$ENV_FILE.backup.$(date +%s)" "$ENV_FILE"
+            log "Restored backup configuration"
+        fi
+    else
+        log "No secret changes detected"
+    fi
+
+    # Cleanup
+    rm -f "$TEMP_FILE"
+
+    log "Secret rotation check completed"
+    EOF
+
+  # Make rotation script executable
+  - chmod +x /opt/nightscout/rotate-secrets.sh
+
+  # Store initial checksum
+  - sha256sum /opt/nightscout/.env | cut -d' ' -f1 > /opt/nightscout/.env.checksum
+
+  # Create cron job for automatic secret rotation (every 10 minutes)
+  - |
+    cat > /etc/cron.d/nightscout-secrets << 'EOF'
+    */10 * * * * root /opt/nightscout/rotate-secrets.sh
+    EOF
+
+  # Create log rotation for secret rotation logs
+  - |
+    cat > /etc/logrotate.d/nightscout-secrets << 'EOF'
+    /var/log/nightscout-secret-rotation.log {
+        daily
+        rotate 7
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 root root
+    }
+    EOF
+
+  # Create Caddyfile for SSL termination
+  - |
+    cat > /opt/nightscout/Caddyfile << 'EOF'
+    {
+        auto_https off
+    }
+
+    :80 {
+        reverse_proxy nightscout:1337
+    }
+    EOF
+
+  # Create docker-compose file
+  - |
+    cat > /opt/nightscout/docker-compose.yml << 'EOF'
+    version: '3.8'
+
+    services:
+      caddy:
+        image: caddy:2-alpine
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - ./Caddyfile:/etc/caddy/Caddyfile
+          - caddy_data:/data
+          - caddy_config:/config
+        restart: unless-stopped
+        depends_on:
+          - nightscout
+
+      nightscout:
+        image: nightscout/cgm-remote-monitor:latest
+        environment:
+          - PORT=1337
+        env_file:
+          - .env
+        restart: unless-stopped
+        volumes:
+          - nightscout_data:/var/opt/nightscout
+
+    volumes:
+      caddy_data:
+      caddy_config:
+      nightscout_data:
+    EOF
+
+  # Set ownership and permissions
+  - chown -R oracle:oracle /opt/nightscout
+  - chmod 600 /opt/nightscout/.env
+
+  # Start services as oracle user
+  - |
+    su - oracle -c "cd /opt/nightscout && docker-compose up -d"
+
+  # Create systemd service for auto-start
+  - |
+    cat > /etc/systemd/system/nightscout.service << 'EOF'
+    [Unit]
+    Description=Nightscout Docker Compose
+    Requires=docker.service
+    After=docker.service
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    User=oracle
+    WorkingDirectory=/opt/nightscout
+    ExecStart=/usr/bin/docker-compose up -d
+    ExecStop=/usr/bin/docker-compose down
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  # Enable the service
+  - systemctl daemon-reload
+  - systemctl enable nightscout.service
+
+write_files:
+  - path: /etc/motd
+    content: |
+
+      =====================================
+      Nightscout Server - Oracle Cloud
+      =====================================
+
+      Services:
+        - Nightscout: Running on port 1337 (internal)
+        - Caddy: HTTP proxy on ports 80/443
+        - Secret Rotation: Every 10 minutes
+
+      Management:
+        sudo systemctl status nightscout
+        cd /opt/nightscout && docker-compose logs -f
+
+      Secret Management:
+        tail -f /var/log/nightscout-secret-rotation.log
+        /opt/nightscout/rotate-secrets.sh (manual run)
+
+      =====================================

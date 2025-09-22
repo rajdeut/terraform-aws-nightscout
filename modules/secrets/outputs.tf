@@ -1,4 +1,9 @@
-output "secret_names" {
-  description = "List of all secret names created from nightscout.env"
-  value = [for secret in google_secret_manager_secret.config_secrets : secret.secret_id]
+output "secret_id" {
+  description = "OCID of the Nightscout environment secret"
+  value       = oci_vault_secret.nightscout_env.id
+}
+
+output "vault_id" {
+  description = "OCID of the vault"
+  value       = oci_vault_vault.nightscout_vault.id
 }

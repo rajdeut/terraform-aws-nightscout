@@ -1,19 +1,28 @@
-variable "project_id" {
-  description = "GCP Project ID"
-  type        = string
-}
 
 variable "region" {
-  description = "GCP region"
+  description = "The OCI region where resources will be created"
   type        = string
-  default     = "us-central1"
+  default     = "us-ashburn-1"
 }
 
-variable "labels" {
-  type = map(string)
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key file for instance access"
+  type        = string
+  default     = "./config/nightscout_ssh.pub"
+}
+
+variable "ssh_allowed_cidr" {
+  description = "CIDR block allowed to access the instance via SSH"
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
+variable "tags" {
+  description = "Freeform tags to apply to all resources"
+  type        = map(string)
   default = {
-    env = "prod"
-    app = "nightscout"
+    Environment = "production"
+    Application = "nightscout"
+    ManagedBy   = "terraform"
   }
-  description = "Labels for all the resources"
 }
