@@ -11,7 +11,7 @@ data "oci_core_images" "oracle_linux" {
 
   filter {
     name   = "display_name"
-    values = [".*Oracle-Linux-8.*"]
+    values = [".*Oracle-Linux-9.*"]
     regex  = true
   }
 }
@@ -21,7 +21,7 @@ resource "oci_core_instance" "nightscout" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_id
   display_name        = "nightscout-server"
-  shape               = "VM.Standard.E2.1.Micro"  # Always Free eligible
+  shape               = "VM.Standard.E2.1.Micro" # Always Free eligible
 
   create_vnic_details {
     subnet_id                 = var.subnet_id
@@ -37,33 +37,11 @@ resource "oci_core_instance" "nightscout" {
 
   metadata = {
     ssh_authorized_keys = file(var.ssh_public_key_path)
-    user_data          = base64encode(templatefile("${path.module}/cloud-init.yaml", {
-      secret_id = var.secret_id
+    user_data = base64encode(templatefile("${path.module}/oci-cloud-init.sh", {
+      env_content = base64decode(var.env_content)
+      domain      = var.domain
     }))
   }
-
-  freeform_tags = var.tags
-}
-
-# Create dynamic group for compute instance
-resource "oci_identity_dynamic_group" "nightscout_instance_group" {
-  compartment_id = var.compartment_id
-  name           = "nightscout-instance-group"
-  description    = "Dynamic group for Nightscout compute instances"
-  matching_rule  = "instance.id = '${oci_core_instance.nightscout.id}'"
-  freeform_tags  = var.tags
-}
-
-# Create policy to allow compute instance to read secrets
-resource "oci_identity_policy" "nightscout_secrets_policy" {
-  compartment_id = var.compartment_id
-  name           = "nightscout-secrets-policy"
-  description    = "Policy allowing Nightscout instance to read secrets"
-
-  statements = [
-    "Allow dynamic-group ${oci_identity_dynamic_group.nightscout_instance_group.name} to read secret-family in compartment id ${var.compartment_id}",
-    "Allow dynamic-group ${oci_identity_dynamic_group.nightscout_instance_group.name} to use keys in compartment id ${var.compartment_id}"
-  ]
 
   freeform_tags = var.tags
 }

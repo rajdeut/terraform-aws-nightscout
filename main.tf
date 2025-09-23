@@ -2,14 +2,11 @@ terraform {
   required_providers {
     oci = {
       source  = "oracle/oci"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.1"
+      version = ">= 7.0"
     }
   }
 }
+
 
 # ============================================================================
 # Local Configuration
@@ -56,13 +53,14 @@ module "network" {
   tags             = local.tags
 }
 
-# Compute instance with automatic secret rotation
+# Compute instance with Nightscout deployment
 module "compute" {
   source = "./modules/compute"
 
   compartment_id      = module.compartment.compartment_id
   subnet_id           = module.network.subnet_id
   ssh_public_key_path = var.ssh_public_key_path
-  secret_id           = module.secrets.secret_id
+  env_content         = module.secrets.env_content
+  domain              = var.domain
   tags                = local.tags
 }

@@ -52,24 +52,23 @@ The deployment uses OCI's Always Free tier which includes:
    terraform init
    ```
 
-4. **Review the planned infrastructure**:
+4. **Configure your Terraform deployment**:
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your tenancy_ocid and preferences
+   ```
+
+5. **Review the planned infrastructure**:
    ```bash
    terraform plan
    ```
 
-5. **Deploy the infrastructure**:
+6. **Deploy the infrastructure**:
    ```bash
    terraform apply
    ```
 
-   **Alternative**: Use terraform.tfvars for customization:
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your preferences
-   terraform apply
-   ```
-
-   *Note: This may take 5-10 minutes to complete as the instance boots and installs Docker/Caddy/Nightscout*
+   *Note: This may take 10-15 minutes to complete as the instance boots and installs Docker/Caddy/Nightscout*
 
 ## Architecture Overview
 
@@ -84,7 +83,7 @@ The deployment uses OCI's Always Free tier which includes:
 - **IAM Policies**: Dynamic group and policies for secure secrets access
 
 ### Software Stack
-- **Oracle Linux 8**: Base operating system
+- **Oracle Linux 9**: Base operating system
 - **Docker**: Container runtime for Nightscout
 - **Caddy**: Web server and reverse proxy for SSL termination
 - **Nightscout**: CGM monitoring application
@@ -108,10 +107,9 @@ The cloud-init script automatically:
 
 ### Outputs
 - `nightscout_url` - HTTP URL to access your Nightscout application
+- `nightscout_url_https` - HTTPS URL to access your Nightscout (after pointing domain to IP address)
 - `nightscout_public_ip` - Public IP address of the server
 - `ssh_command` - Command to SSH into the server
-- `compartment_id` - OCID of the created compartment
-- `compartment_name` - Name of the created compartment (terraform-nightscout)
 
 ## Post-Deployment
 
@@ -122,27 +120,17 @@ After deployment, you can:
    - HTTPS will be available if you configure a domain (see below)
 
 2. **Use your own domain** (optional):
+   - **Make sure the domain variable was set**: In the `terraform.tfvars` file the domain value should be set to the domain you have registered for Nightscout. If it's missing you'll need to add it and run `terraform apply` again.
    - **Point your domain**: Create an A record pointing to the public IP:
      ```
      A record: nightscout.yourdomain.com → <public-ip-address>
      ```
-   - **Update Caddyfile**: SSH into the server and edit `/opt/nightscout/Caddyfile`:
-     ```
-     nightscout.yourdomain.com {
-         reverse_proxy nightscout:1337
-     }
-     ```
-   - **Restart services**:
-     ```bash
-     cd /opt/nightscout && docker-compose restart caddy
-     ```
-   - **Automatic HTTPS**: Caddy will automatically obtain Let's Encrypt SSL certificates
 
 3. **Monitor the service**:
    - **SSH into server**: Use the `ssh_command` output
    - **Check service status**: `sudo systemctl status nightscout`
-   - **View logs**: `cd /opt/nightscout && docker-compose logs -f`
-   - **Restart services**: `cd /opt/nightscout && docker-compose restart`
+   - **View logs**: `cd /opt/nightscout && sudo docker-compose logs -f`
+   - **Restart services**: `sudo systemctl restart nightscout`
 
 4. **Update configurations**:
    - **Recommended**: Update the secret in OCI Vault via the console or CLI
@@ -174,13 +162,13 @@ This deployment is designed to stay within Always Free limits:
 sudo systemctl status nightscout
 
 # View application logs
-cd /opt/nightscout && docker-compose logs -f
+cd /opt/nightscout && sudo docker-compose logs -f
 
 # Restart services
-cd /opt/nightscout && docker-compose restart
+cd /opt/nightscout && sudo docker-compose restart
 
 # Update Nightscout image
-cd /opt/nightscout && docker-compose pull && docker-compose up -d
+cd /opt/nightscout && sudo docker-compose pull && sudo docker-compose up -d
 
 # Check secret rotation logs
 tail -f /var/log/nightscout-secret-rotation.log
@@ -201,17 +189,17 @@ scp oracle@<public-ip>:/opt/nightscout/docker-compose.yml ./docker-compose.yml.b
 ## Troubleshooting
 
 **If Nightscout isn't starting:**
-1. SSH into the server: `ssh oracle@<public-ip>`
-2. Check logs: `cd /opt/nightscout && docker-compose logs nightscout`
+1. SSH into the server: `ssh opc@<public-ip>`
+2. Check logs: `cd /opt/nightscout && sudo docker-compose logs nightscout`
 3. Verify configuration: `cat /opt/nightscout/.env`
-4. Restart services: `docker-compose restart`
+4. Restart services: `sudo docker compose restart`
 
 **If you can't access the web interface:**
-1. Check if services are running: `docker-compose ps`
+1. Check if services are running: `sudo docker compose ps`
 2. Verify ports are open: `sudo firewall-cmd --list-all` (if firewall is enabled)
 3. Check security list allows HTTP/HTTPS traffic in OCI console
 
 **For domain/SSL issues:**
 1. Verify DNS points to the correct IP: `nslookup yourdomain.com`
-2. Check Caddy logs: `docker-compose logs caddy`
+2. Check Caddy logs: `sudo docker-compose logs caddy`
 3. Ensure port 443 is accessible from the internet

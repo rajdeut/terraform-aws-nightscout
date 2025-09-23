@@ -15,5 +15,5 @@ output "instance_id" {
 
 output "ssh_command" {
   description = "Command to SSH into the server"
-  value       = "ssh oracle@${oci_core_instance.nightscout.public_ip}"
+  value       = "ssh opc@${oci_core_instance.nightscout.public_ip} -i ${substr(var.ssh_public_key_path, 0, length(var.ssh_public_key_path) - 4)}"
 }

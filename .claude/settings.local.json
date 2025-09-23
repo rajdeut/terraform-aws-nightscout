@@ -5,7 +5,8 @@
       "WebFetch(domain:navid200.github.io)",
       "Bash(terraform:*)",
       "Bash(find:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []

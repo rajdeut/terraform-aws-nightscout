@@ -47,7 +47,7 @@ resource "oci_core_security_list" "nightscout_sl" {
   # Ingress rules
   # SSH access
   ingress_security_rules {
-    protocol = "6"  # TCP
+    protocol = "6" # TCP
     source   = var.ssh_allowed_cidr
 
     tcp_options {
@@ -58,7 +58,7 @@ resource "oci_core_security_list" "nightscout_sl" {
 
   # HTTP access
   ingress_security_rules {
-    protocol = "6"  # TCP
+    protocol = "6" # TCP
     source   = "0.0.0.0/0"
 
     tcp_options {
@@ -69,7 +69,7 @@ resource "oci_core_security_list" "nightscout_sl" {
 
   # HTTPS access
   ingress_security_rules {
-    protocol = "6"  # TCP
+    protocol = "6" # TCP
     source   = "0.0.0.0/0"
 
     tcp_options {
@@ -83,13 +83,13 @@ resource "oci_core_security_list" "nightscout_sl" {
 
 # Create public subnet
 resource "oci_core_subnet" "nightscout_subnet" {
-  compartment_id      = var.compartment_id
-  vcn_id              = oci_core_vcn.nightscout_vcn.id
-  display_name        = "nightscout-public-subnet"
-  cidr_block          = "10.0.1.0/24"
-  dns_label           = "nightscoutsubnet"
-  route_table_id      = oci_core_vcn.nightscout_vcn.default_route_table_id
-  security_list_ids   = [oci_core_security_list.nightscout_sl.id]
+  compartment_id    = var.compartment_id
+  vcn_id            = oci_core_vcn.nightscout_vcn.id
+  display_name      = "nightscout-public-subnet"
+  cidr_block        = "10.0.1.0/24"
+  dns_label         = "nightscout"
+  route_table_id    = oci_core_vcn.nightscout_vcn.default_route_table_id
+  security_list_ids = [oci_core_security_list.nightscout_sl.id]
 
   freeform_tags = var.tags
 }

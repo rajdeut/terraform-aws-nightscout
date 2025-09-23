@@ -82,14 +82,17 @@ ENABLE="careportal boluscalc food bwp cage sage"
 This format is much easier to read and edit compared to JSON. Comments are supported using `#` at the beginning of a line.
 
 ## Important Variables
-All variables are optional with sensible defaults:
 
+**Required Variables:**
+- `tenancy_ocid` (required) - Your OCI tenancy OCID (from ~/.oci/config)
+
+**Optional Variables:**
 - `region` (default: us-ashburn-1) - OCI region for deployment
 - `ssh_public_key_path` (default: ./config/nightscout_ssh.pub) - Path to SSH public key
 - `ssh_allowed_cidr` (default: 0.0.0.0/0) - CIDR block for SSH access
 - `tags` (default: production/nightscout/terraform tags) - Map of tags for resource organization
 
-**Note**: Compartment is created automatically as "terraform-nightscout"
+**Note**: Compartment "terraform-nightscout" is created automatically in your tenancy
 
 ## Development Notes
 - Provider version uses Oracle OCI provider ~> 5.0

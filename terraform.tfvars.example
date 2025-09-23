@@ -4,6 +4,10 @@
 # OCI region for deployment (default: us-ashburn-1)
 # region = "us-phoenix-1"
 
+# Domain name to load nightscout 
+# (you must register and point this to the IP address of the server yourself)
+# domain = "mynightscout.com"
+
 # Path to SSH public key (default: ./config/nightscout_ssh.pub)
 # ssh_public_key_path = "~/.ssh/id_rsa.pub"
 

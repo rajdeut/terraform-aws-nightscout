@@ -8,22 +8,12 @@ output "nightscout_url" {
   value       = "http://${module.compute.public_ip}"
 }
 
+output "nightscout_url_https" {
+  description = "URL to access your Nightscout application (after domain setup)"
+  value       = "https://${var.domain}"
+}
+
 output "ssh_command" {
   description = "Command to SSH into the server"
   value       = module.compute.ssh_command
-}
-
-output "instance_id" {
-  description = "OCID of the compute instance"
-  value       = module.compute.instance_id
-}
-
-output "compartment_id" {
-  description = "OCID of the created compartment"
-  value       = module.compartment.compartment_id
-}
-
-output "compartment_name" {
-  description = "Name of the created compartment"
-  value       = module.compartment.compartment_name
 }

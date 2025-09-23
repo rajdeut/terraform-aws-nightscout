@@ -5,6 +5,11 @@ variable "region" {
   default     = "us-ashburn-1"
 }
 
+variable "domain" {
+  description = "Domain name for accessing Nightscout (e.g., nightscout.example.com)"
+  type        = string
+}
+
 variable "ssh_public_key_path" {
   description = "Path to the SSH public key file for instance access"
   type        = string
