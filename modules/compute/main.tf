@@ -3,6 +3,15 @@ data "oci_identity_availability_domains" "ads" {
   compartment_id = var.compartment_id
 }
 
+# Create reserved public IP
+resource "oci_core_public_ip" "nightscout_reserved_ip" {
+  compartment_id = var.compartment_id
+  lifetime       = "RESERVED"
+  display_name   = "nightscout-reserved-ip"
+
+  freeform_tags = var.tags
+}
+
 # Create dynamic group for the instance to access secrets
 resource "oci_identity_dynamic_group" "nightscout_dynamic_group" {
   compartment_id = var.tenancy_id
@@ -51,7 +60,7 @@ resource "oci_core_instance" "nightscout" {
   create_vnic_details {
     subnet_id                 = var.subnet_id
     display_name              = "nightscout-vnic"
-    assign_public_ip          = true
+    assign_public_ip          = false  # Don't assign ephemeral IP, we'll use reserved IP
     assign_private_dns_record = true
   }
 
@@ -78,4 +87,13 @@ resource "oci_core_instance" "nightscout" {
   freeform_tags = var.tags
 }
 
-# Public IP will be assigned automatically via create_vnic_details
+# Attach reserved public IP to the instance VNIC
+resource "oci_core_public_ip_assignment" "nightscout_ip_assignment" {
+  public_ip_id = oci_core_public_ip.nightscout_reserved_ip.id
+  private_ip_id = data.oci_core_vnic.nightscout_vnic.private_ip_id
+}
+
+# Get the VNIC details for reserved IP assignment
+data "oci_core_vnic" "nightscout_vnic" {
+  vnic_id = oci_core_instance.nightscout.primary_vnic_id
+}
