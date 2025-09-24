@@ -27,32 +27,29 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-# Extract all ACTIVE secrets (assume all secrets in this vault are environment variables)
-SECRET_OCIDS=$(echo "$secrets_json" | jq -r '.data[] | select(."lifecycle-state" == "ACTIVE") | "\(.name):\(.id)"' | tr '\n' ' ')
+# Extract all ACTIVE secrets - try different field names
+SECRET_LIST=$(echo "$secrets_json" | jq -r '.data[] | select(."lifecycle-state" == "ACTIVE") | "\(."secret-name" // .name // ."display-name" // "unnamed"):\(.id)"')
 
-if [[ -z "$SECRET_OCIDS" ]]; then
+if [[ -z "$SECRET_LIST" ]]; then
   log_message "No active secrets found in vault"
   exit 1
 fi
 
 # Create temporary env file
 TEMP_ENV="/tmp/.env.new"
-TEMP_ENV_COMPARE="/tmp/.env.compare"
 
 echo "# Nightscout environment variables" > "$TEMP_ENV"
-echo "# Updated on $(date)" >> "$TEMP_ENV"
 echo "" >> "$TEMP_ENV"
-
-# Create comparison file without timestamp
-echo "# Nightscout environment variables" > "$TEMP_ENV_COMPARE"
-echo "" >> "$TEMP_ENV_COMPARE"
 
 # Fetch each secret
 ALL_SECRETS_FETCHED=true
-for secret_pair in $SECRET_OCIDS; do
-  # Split name:ocid pair
+while IFS= read -r secret_pair; do
+  # Skip empty lines
+  [[ -z "$secret_pair" ]] && continue
+
+  # Split name:ocid pair (OCID contains multiple colons, so only split on first one)
   secret_name=$(echo "$secret_pair" | cut -d':' -f1)
-  secret_ocid=$(echo "$secret_pair" | cut -d':' -f2)
+  secret_ocid=$(echo "$secret_pair" | cut -d':' -f2-)
 
   # Normalize secret name to uppercase snake_case environment variable format
   env_var=$(echo "$secret_name" | sed 's/-/_/g' | tr '[:lower:]' '[:upper:]')
@@ -68,7 +65,6 @@ for secret_pair in $SECRET_OCIDS; do
 
       if [[ $base64_exit_code -eq 0 && -n "$secret_value" ]]; then
         echo "$env_var=$secret_value" >> "$TEMP_ENV"
-        echo "$env_var=$secret_value" >> "$TEMP_ENV_COMPARE"
       else
         log_message "Failed to decode secret for $env_var"
         ALL_SECRETS_FETCHED=false
@@ -81,25 +77,12 @@ for secret_pair in $SECRET_OCIDS; do
     log_message "Invalid secret OCID for $env_var"
     ALL_SECRETS_FETCHED=false
   fi
-done
+done <<< "$SECRET_LIST"
 
 # Only update if all secrets were fetched successfully
 if [[ "$ALL_SECRETS_FETCHED" == "true" ]]; then
-  # Create comparison version of existing file (without timestamp)
-  EXISTING_ENV_COMPARE="/tmp/.env.existing.compare"
-
-  if [[ -f "/opt/nightscout/.env" ]]; then
-    # Remove timestamp line and empty lines from existing file for comparison
-    grep -v "^# Updated on " /opt/nightscout/.env | grep -v "^$" > "$EXISTING_ENV_COMPARE" || true
-    # Add back the header and empty line for consistency
-    sed -i '1i# Nightscout environment variables\n' "$EXISTING_ENV_COMPARE"
-  else
-    # No existing file, so comparison file should be empty
-    touch "$EXISTING_ENV_COMPARE"
-  fi
-
-  # Compare with existing file (without timestamps)
-  if ! cmp -s "$TEMP_ENV_COMPARE" "$EXISTING_ENV_COMPARE"; then
+  # Simple comparison - compare the files directly (no timestamps to worry about)
+  if [[ ! -f "/opt/nightscout/.env" ]] || ! cmp -s "$TEMP_ENV" "/opt/nightscout/.env"; then
     log_message "Secrets updated, restarting services"
 
     # Backup old env file if it exists
@@ -107,7 +90,7 @@ if [[ "$ALL_SECRETS_FETCHED" == "true" ]]; then
       cp /opt/nightscout/.env /opt/nightscout/.env.backup
     fi
 
-    # Update env file (with timestamp)
+    # Update env file
     mv "$TEMP_ENV" /opt/nightscout/.env
     chmod 600 /opt/nightscout/.env
     chown opc:opc /opt/nightscout/.env
@@ -116,12 +99,13 @@ if [[ "$ALL_SECRETS_FETCHED" == "true" ]]; then
     cd /opt/nightscout && sudo docker compose restart nightscout
 
     log_message "Services restarted successfully"
+  else
+    # No changes, clean up temp file
+    log_message "No changes in secrets"
+    rm -f "$TEMP_ENV"
   fi
-
-  # Clean up temp files
-  rm -f "$TEMP_ENV" "$TEMP_ENV_COMPARE" "$EXISTING_ENV_COMPARE"
 else
   log_message "Secret fetch failed, keeping existing configuration"
-  rm -f "$TEMP_ENV" "$TEMP_ENV_COMPARE"
+  rm -f "$TEMP_ENV"
   exit 1
 fi

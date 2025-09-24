@@ -135,8 +135,8 @@ SCRIPT
   chmod +x /opt/nightscout/rotate-secrets.sh
   chown opc:opc /opt/nightscout/rotate-secrets.sh
 
-  # Create cron job for secret rotation (every 10 minutes)
-  echo "*/10 * * * * /opt/nightscout/rotate-secrets.sh" | crontab -u opc -
+  # Create cron job for secret rotation (every 15 minutes)
+  echo "*/15 * * * * /opt/nightscout/rotate-secrets.sh" | crontab -u opc -
 
   # Wait for IAM policies to propagate before attempting secret fetch
   echo_header "Waiting for IAM policies to propagate"
