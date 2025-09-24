@@ -63,10 +63,17 @@ resource "oci_core_instance" "nightscout" {
   metadata = {
     ssh_authorized_keys = file(var.ssh_public_key_path)
     user_data = base64encode(templatefile("${path.module}/oci-cloud-init.sh", {
-      vault_id     = var.vault_id
-      secret_ocids = jsonencode(var.secret_ocids)
-      env_vars     = jsonencode(var.env_vars)
-      domain       = var.domain
+      vault_id           = var.vault_id
+      secret_ocids       = jsonencode(var.secret_ocids)
+      env_vars           = jsonencode(var.env_vars)
+      domain             = var.domain
+      caddyfile_content  = templatefile("${path.module}/templates/Caddyfile.tpl", { domain = var.domain })
+      compose_content    = file("${path.module}/templates/docker-compose.yml.tpl")
+      rotate_script_content = templatefile("${path.module}/templates/rotate-secrets.sh.tpl", {
+        secret_ocids = jsonencode(var.secret_ocids)
+        env_vars     = jsonencode(var.env_vars)
+      })
+      systemd_content    = file("${path.module}/templates/nightscout.service.tpl")
     }))
   }
 
