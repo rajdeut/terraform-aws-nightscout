@@ -60,7 +60,9 @@ module "compute" {
   compartment_id      = module.compartment.compartment_id
   subnet_id           = module.network.subnet_id
   ssh_public_key_path = var.ssh_public_key_path
-  env_content         = module.secrets.env_content
+  vault_id            = module.secrets.vault_id
+  secret_ocids        = module.secrets.secret_ocids
+  env_vars            = module.secrets.env_vars
   domain              = var.domain
   tags                = local.tags
 }

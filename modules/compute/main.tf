@@ -3,6 +3,31 @@ data "oci_identity_availability_domains" "ads" {
   compartment_id = var.compartment_id
 }
 
+# Create dynamic group for the instance to access secrets
+resource "oci_identity_dynamic_group" "nightscout_dynamic_group" {
+  compartment_id = var.compartment_id
+  description    = "Dynamic group for Nightscout instance to access vault secrets"
+  matching_rule  = "instance.id = '${oci_core_instance.nightscout.id}'"
+  name           = "nightscout-instance-group"
+
+  freeform_tags = var.tags
+}
+
+# Create policy to allow the dynamic group to read secrets
+resource "oci_identity_policy" "nightscout_secrets_policy" {
+  compartment_id = var.compartment_id
+  description    = "Policy allowing Nightscout instance to read vault secrets"
+  name           = "nightscout-secrets-policy"
+
+  statements = [
+    "Allow dynamic-group ${oci_identity_dynamic_group.nightscout_dynamic_group.name} to read secret-family in compartment id ${var.compartment_id}",
+    "Allow dynamic-group ${oci_identity_dynamic_group.nightscout_dynamic_group.name} to read vaults in compartment id ${var.compartment_id}",
+    "Allow dynamic-group ${oci_identity_dynamic_group.nightscout_dynamic_group.name} to use keys in compartment id ${var.compartment_id}"
+  ]
+
+  freeform_tags = var.tags
+}
+
 # Get latest Oracle Linux image
 data "oci_core_images" "oracle_linux" {
   compartment_id   = var.compartment_id
@@ -38,8 +63,10 @@ resource "oci_core_instance" "nightscout" {
   metadata = {
     ssh_authorized_keys = file(var.ssh_public_key_path)
     user_data = base64encode(templatefile("${path.module}/oci-cloud-init.sh", {
-      env_content = base64decode(var.env_content)
-      domain      = var.domain
+      vault_id     = var.vault_id
+      secret_ocids = jsonencode(var.secret_ocids)
+      env_vars     = jsonencode(var.env_vars)
+      domain       = var.domain
     }))
   }
 

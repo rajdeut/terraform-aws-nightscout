@@ -18,10 +18,20 @@ variable "ssh_public_key_path" {
   default     = "./config/nightscout_ssh.pub"
 }
 
-variable "env_content" {
-  description = "Base64 encoded Nightscout environment content"
+variable "vault_id" {
+  description = "The OCID of the OCI Vault containing secrets"
   type        = string
+}
+
+variable "secret_ocids" {
+  description = "Map of environment variable names to their secret OCIDs"
+  type        = map(string)
   sensitive   = true
+}
+
+variable "env_vars" {
+  description = "List of environment variable names"
+  type        = list(string)
 }
 
 variable "tags" {
