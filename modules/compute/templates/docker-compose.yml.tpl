@@ -14,8 +14,6 @@ services:
 
   nightscout:
     image: nightscout/cgm-remote-monitor:latest
-    environment:
-      - PORT=1337
     env_file:
       - .env
     restart: unless-stopped
