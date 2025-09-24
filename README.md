@@ -178,13 +178,13 @@ This deployment is designed to stay within Always Free limits:
 sudo systemctl status nightscout
 
 # View application logs
-cd /opt/nightscout && sudo docker-compose logs -f
+cd /opt/nightscout && sudo docker compose logs -f
 
 # Restart services
-cd /opt/nightscout && sudo docker-compose restart
+cd /opt/nightscout && sudo docker compose restart
 
 # Update Nightscout image
-cd /opt/nightscout && sudo docker-compose pull && sudo docker-compose up -d
+cd /opt/nightscout && sudo docker compose pull && sudo docker compose up -d
 
 # Check secret rotation logs
 tail -f /var/log/nightscout-secret-rotation.log
