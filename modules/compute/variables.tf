@@ -28,17 +28,6 @@ variable "vault_id" {
   type        = string
 }
 
-variable "secret_ocids" {
-  description = "Map of environment variable names to their secret OCIDs"
-  type        = map(string)
-  sensitive   = true
-}
-
-variable "env_vars" {
-  description = "List of environment variable names"
-  type        = list(string)
-}
-
 variable "tags" {
   description = "Freeform tags to apply to all resources"
   type        = map(string)

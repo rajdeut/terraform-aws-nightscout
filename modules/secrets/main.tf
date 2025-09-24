@@ -48,7 +48,7 @@ resource "oci_vault_secret" "nightscout_secrets" {
   for_each = local.env_vars
 
   compartment_id = var.compartment_id
-  secret_name    = "nightscout-${lower(replace(each.key, "_", "-"))}"
+  secret_name    = each.key  # Use the environment variable name directly (e.g., API_SECRET, TRUST_PROXY)
   vault_id       = oci_kms_vault.nightscout_vault.id
   key_id         = oci_kms_key.nightscout_key.id
 

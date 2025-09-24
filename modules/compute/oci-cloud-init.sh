@@ -40,6 +40,8 @@ install_docker() {
   echo_header "Install Docker"
 
   sudo dnf makecache --refresh
+  
+  sudo dnf install -y nano
   sudo yum install -y yum-utils device-mapper-persistent-data lvm2
 
   echo_header "Install docker repo"
@@ -115,7 +117,8 @@ EOF
 
   sudo systemctl daemon-reload
   sudo systemctl enable nightscout.service
-  sudo systemctl start nightscout.service
+
+  # Note: Service will be started after secrets are fetched in setup_secret_rotation
 }
 
 #######################################
@@ -149,6 +152,16 @@ SCRIPT
   while [[ $retry_count -lt $max_retries ]]; do
     if /opt/nightscout/rotate-secrets.sh; then
       echo_header "Secret fetch successful"
+
+      # Now that secrets are available, start the Nightscout service
+      echo_header "Starting Nightscout service"
+      sudo systemctl start nightscout.service
+
+      if [[ $? -eq 0 ]]; then
+        echo_header "Nightscout service started successfully"
+      else
+        echo_header "Failed to start Nightscout service, check logs"
+      fi
       break
     else
       retry_count=$((retry_count + 1))
@@ -156,7 +169,7 @@ SCRIPT
         echo_header "Secret fetch failed, retrying in 30 seconds (attempt $retry_count/$max_retries)"
         sleep 30
       else
-        echo_header "Secret fetch failed after $max_retries attempts"
+        echo_header "Secret fetch failed after $max_retries attempts - service not started"
       fi
     fi
   done

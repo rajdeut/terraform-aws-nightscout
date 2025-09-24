@@ -7,9 +7,9 @@ log_message() {
   echo "$(date): $1" | sudo tee -a "$LOG_FILE"
 }
 
-# Parse JSON variables from template (same as during initial setup)
-SECRET_OCIDS='${secret_ocids}'
-ENV_VARS='${env_vars}'
+# Get vault ID and compartment ID from template
+VAULT_ID='${vault_id}'
+COMPARTMENT_ID='${compartment_id}'
 
 # Export path for OCI CLI
 export PATH=$PATH:/home/opc/bin
@@ -17,6 +17,21 @@ export PATH=$PATH:/home/opc/bin
 # Verify OCI CLI is available
 if ! command -v /home/opc/bin/oci &> /dev/null; then
   log_message "ERROR: OCI CLI not found at /home/opc/bin/oci"
+  exit 1
+fi
+
+# Discover all secrets in the vault
+secrets_json=$(/home/opc/bin/oci vault secret list --compartment-id "$COMPARTMENT_ID" --vault-id "$VAULT_ID" --auth instance_principal --all 2>&1)
+if [[ $? -ne 0 ]]; then
+  log_message "Failed to list secrets from vault: $secrets_json"
+  exit 1
+fi
+
+# Extract all ACTIVE secrets (assume all secrets in this vault are environment variables)
+SECRET_OCIDS=$(echo "$secrets_json" | jq -r '.data[] | select(."lifecycle-state" == "ACTIVE") | "\(.name):\(.id)"' | tr '\n' ' ')
+
+if [[ -z "$SECRET_OCIDS" ]]; then
+  log_message "No active secrets found in vault"
   exit 1
 fi
 
@@ -34,10 +49,15 @@ echo "" >> "$TEMP_ENV_COMPARE"
 
 # Fetch each secret
 ALL_SECRETS_FETCHED=true
-for var in $(echo "$ENV_VARS" | jq -r '.[]'); do
-  secret_ocid=$(echo "$SECRET_OCIDS" | jq -r ".[\"$var\"]")
+for secret_pair in $SECRET_OCIDS; do
+  # Split name:ocid pair
+  secret_name=$(echo "$secret_pair" | cut -d':' -f1)
+  secret_ocid=$(echo "$secret_pair" | cut -d':' -f2)
 
-  if [[ "$secret_ocid" != "null" && -n "$secret_ocid" ]]; then
+  # Normalize secret name to uppercase snake_case environment variable format
+  env_var=$(echo "$secret_name" | sed 's/-/_/g' | tr '[:lower:]' '[:upper:]')
+
+  if [[ -n "$secret_ocid" ]]; then
     # Try fetching secret
     oci_output=$(/home/opc/bin/oci secrets secret-bundle get --secret-id "$secret_ocid" --auth instance_principal --query 'data."secret-bundle-content".content' --raw-output 2>&1)
     oci_exit_code=$?
@@ -47,18 +67,18 @@ for var in $(echo "$ENV_VARS" | jq -r '.[]'); do
       base64_exit_code=$?
 
       if [[ $base64_exit_code -eq 0 && -n "$secret_value" ]]; then
-        echo "$var=$secret_value" >> "$TEMP_ENV"
-        echo "$var=$secret_value" >> "$TEMP_ENV_COMPARE"
+        echo "$env_var=$secret_value" >> "$TEMP_ENV"
+        echo "$env_var=$secret_value" >> "$TEMP_ENV_COMPARE"
       else
-        log_message "Failed to decode secret for $var"
+        log_message "Failed to decode secret for $env_var"
         ALL_SECRETS_FETCHED=false
       fi
     else
-      log_message "Failed to fetch secret for $var: $oci_output"
+      log_message "Failed to fetch secret for $env_var: $oci_output"
       ALL_SECRETS_FETCHED=false
     fi
   else
-    log_message "No secret OCID found for $var"
+    log_message "Invalid secret OCID for $env_var"
     ALL_SECRETS_FETCHED=false
   fi
 done
