@@ -32,41 +32,50 @@ For easier customization, copy the example file:
 ### Module Structure
 The project uses a modular Terraform architecture with the following components:
 
-1. **Secrets Module** (`modules/secrets/`) - Manages secure configuration:
-   - OCI Vault for storing Nightscout environment variables
-   - KMS key for encryption
-   - Secure base64-encoded secret storage
+1. **Compartment Module** (`modules/compartment/`) - Resource isolation:
+   - Creates dedicated "terraform-nightscout" compartment
+   - Provides tenancy ID for IAM resource creation
 
-2. **Network Module** (`modules/network/`) - Creates the network infrastructure:
+2. **Secrets Module** (`modules/secrets/`) - Secure configuration management:
+   - OCI Vault with KMS encryption for all environment variables
+   - Individual secrets for each Nightscout configuration variable
+   - Default secrets (TRUST_PROXY, INSECURE_USE_HTTP, PORT) created automatically
+   - Parses .env file format and creates vault secrets dynamically
+
+3. **Network Module** (`modules/network/`) - Network infrastructure:
    - VCN (Virtual Cloud Network) with 10.0.0.0/16 CIDR
-   - Public subnet with 10.0.1.0/24 CIDR
-   - Internet Gateway for outbound connectivity
+   - Public subnet with 10.0.1.0/24 CIDR and internet gateway
    - Security Lists allowing HTTP (80), HTTPS (443), and SSH (22)
+   - Route tables for proper internet connectivity
 
-3. **Compute Module** (`modules/compute/`) - Manages the compute resources:
+4. **Compute Module** (`modules/compute/`) - Compute and application resources:
    - VM.Standard.E2.1.Micro instance (Always Free eligible)
-   - Oracle Linux 8 with cloud-init automation
-   - Dynamic group and IAM policies for secrets access
-   - Automatic Docker, Caddy, and Nightscout setup
-   - Public IP assignment for internet access
+   - Oracle Linux 8 with comprehensive cloud-init automation
+   - Reserved public IP for persistent connectivity
+   - Dynamic group and IAM policies for secure vault access
+   - Modular template system for configuration files
 
 ### Key Infrastructure Components
-- **Always Free Compute**: VM.Standard.E2.1.Micro (1/8 OCPU, 1GB memory)
-- **Secure Secrets**: OCI Vault with KMS encryption for environment variables
-- **Automatic Rotation**: Secret changes detected and applied every 10 minutes
-- **Automatic HTTPS**: Caddy reverse proxy with Let's Encrypt SSL
-- **Container-based**: Docker deployment of official Nightscout image
-- **Dynamic Security**: Instance-based IAM policies for secure secrets access
-- **Auto-restart**: Systemd service ensures containers restart on boot
+- **Always Free Compute**: VM.Standard.E2.1.Micro (1/8 OCPU, 1GB memory) with 8GB swap
+- **Reserved Public IP**: Persistent IP address that survives instance recreation
+- **Secure Secrets**: OCI Vault with KMS encryption for all environment variables
+- **Dynamic Secret Discovery**: Automatically processes all secrets in vault
+- **Automatic Rotation**: Secret changes detected and applied every 15 minutes
+- **Automatic HTTPS**: Caddy reverse proxy with Let's Encrypt SSL certificates
+- **Container-based**: Docker deployment with official Nightscout image
+- **Instance Principal Auth**: Secure vault access without API keys
+- **Template-based Config**: Modular configuration file management
+- **Comprehensive Monitoring**: Detailed logging and error handling
 
 ### Configuration Management
-- OCI credentials configured via `~/.oci/config` or environment variables
-- Nightscout configuration stored securely in OCI Vault (encrypted with KMS)
-- Local `config/nightscout.env` used only during Terraform deployment
-- Instance fetches configuration automatically from vault at startup
-- Automatic secret rotation checks every 10 minutes via cron job
-- Container automatically restarts when secrets change
-- All resources tagged with environment and application identifiers
+- **OCI Authentication**: Configured via `~/.oci/config` with automatic tenancy detection
+- **Secret Storage**: All environment variables stored securely in encrypted OCI Vault
+- **Local Configuration**: `config/nightscout.env` used only during Terraform deployment
+- **Dynamic Discovery**: Instance automatically discovers and processes all vault secrets
+- **Automatic Rotation**: Secret changes detected and applied every 15 minutes via cron
+- **Smart Restart**: Services only restart when actual secret values change (no timestamp conflicts)
+- **Template System**: Configuration files generated from modular templates
+- **Comprehensive Logging**: All rotation activities logged to `/var/log/nightscout-secret-rotation.log`
 
 ### Configuration Format
 The `config/nightscout.env` file uses a simple environment variable format:
@@ -84,7 +93,7 @@ This format is much easier to read and edit compared to JSON. Comments are suppo
 ## Important Variables
 
 **Required Variables:**
-- `tenancy_ocid` (required) - Your OCI tenancy OCID (from ~/.oci/config)
+- `domain` (required) - Domain name for your Nightscout site (e.g., nightscout.example.com)
 
 **Optional Variables:**
 - `region` (default: us-ashburn-1) - OCI region for deployment
@@ -92,14 +101,19 @@ This format is much easier to read and edit compared to JSON. Comments are suppo
 - `ssh_allowed_cidr` (default: 0.0.0.0/0) - CIDR block for SSH access
 - `tags` (default: production/nightscout/terraform tags) - Map of tags for resource organization
 
-**Note**: Compartment "terraform-nightscout" is created automatically in your tenancy
+**Note**:
+- Tenancy OCID is automatically detected from compartment creation
+- Compartment "terraform-nightscout" is created automatically in your tenancy
+- Reserved public IP is always created for persistent connectivity
 
 ## Development Notes
-- Provider version uses Oracle OCI provider ~> 5.0
-- Uses official Nightscout Docker image from Docker Hub
-- Resource naming convention: "nightscout-[resource_type]"
-- Always Free tier compatible - no usage charges
-- Oracle Linux 8 as base OS for compatibility and support
+- **Terraform Provider**: Uses Oracle OCI provider >= 7.0 for latest features
+- **Container Images**: Official Nightscout and Caddy Docker images from Docker Hub
+- **Resource Naming**: "nightscout-[resource_type]" convention for consistency
+- **Cost Model**: Always Free tier compatible with $0 monthly cost
+- **Operating System**: Oracle Linux 8 with cloud-init for automation
+- **Architecture**: Template-based modular design for maintainability
+- **Secret Naming**: Vault secrets use uppercase snake_case (e.g., API_SECRET, MONGODB_URI)
 
 ## Always Free Tier Benefits
 Oracle Cloud's Always Free tier provides excellent resources for Nightscout:
@@ -112,24 +126,26 @@ Oracle Cloud's Always Free tier provides excellent resources for Nightscout:
 - **Better specs**: 1/8 OCPU + 1GB RAM vs GCP's restrictive limits
 
 ## Container Architecture
-The deployment uses a multi-container setup:
+The deployment uses a streamlined multi-container setup:
 
 ### Services
-- **Caddy**: HTTP/HTTPS reverse proxy and SSL termination
-  - Handles Let's Encrypt certificate automation
-  - Routes traffic to Nightscout container
-  - Supports custom domains with zero configuration
+- **Caddy**: HTTP/HTTPS reverse proxy with automatic SSL
+  - Automatic Let's Encrypt certificate management for custom domains
+  - Routes HTTP/HTTPS traffic to Nightscout container
+  - No hardcoded configuration - fully driven by environment variables
 
 - **Nightscout**: Main CGM monitoring application
-  - Runs on internal port 1337
-  - Environment variables from `nightscout.env`
+  - Official Docker image with latest stable version
+  - All configuration from `.env` file (no hardcoded environment variables)
   - Persistent data storage via Docker volumes
+  - Auto-restart on configuration changes
 
 ### Management
-- **Docker Compose**: Container orchestration and management
-- **Systemd Service**: Ensures containers start on boot
-- **Cloud-init**: Automated initial setup and configuration
-- **Auto-restart**: Containers automatically restart on failure
+- **Docker Compose**: Container orchestration with dependency management
+- **Systemd Service**: Ensures containers start on boot with proper dependencies
+- **Template System**: Configuration files generated from modular templates
+- **Secret Rotation**: Automated configuration updates from OCI Vault
+- **Health Monitoring**: Comprehensive logging and error detection
 
 ## Post-Deployment Management
 
@@ -150,14 +166,20 @@ cd /opt/nightscout && docker-compose pull && docker-compose up -d
 
 ### Configuration Updates
 **Recommended Approach:**
-1. Update the secret in OCI Vault (via console or CLI)
-2. Wait up to 10 minutes for automatic detection and restart
-3. Monitor changes via `/var/log/nightscout-secret-rotation.log`
+1. **Update secrets in OCI Vault** (via console or CLI)
+2. **Add new secrets** by creating them in the vault with uppercase snake_case names
+3. **Wait up to 15 minutes** for automatic detection and restart
+4. **Monitor changes** via `/var/log/nightscout-secret-rotation.log`
 
 **Manual Approach:**
-1. Edit `/opt/nightscout/.env` on the server
-2. Run `cd /opt/nightscout && docker-compose restart nightscout`
-3. Changes take effect immediately
+1. Edit `/opt/nightscout/.env` on the server directly
+2. Run `cd /opt/nightscout && docker compose restart nightscout`
+3. Changes take effect immediately (but will be overwritten by vault rotation)
+
+**Adding New Variables:**
+- Simply add new secrets to the vault (any naming convention works)
+- The rotation script automatically normalizes names to uppercase snake_case
+- No Terraform changes required - fully dynamic discovery
 
 ### SSL/Domain Setup
 1. Point your domain A record to the server's public IP
