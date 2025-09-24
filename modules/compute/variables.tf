@@ -3,6 +3,11 @@ variable "compartment_id" {
   type        = string
 }
 
+variable "tenancy_id" {
+  description = "The OCID of the tenancy (required for dynamic group creation)"
+  type        = string
+}
+
 variable "domain" {
   description = "Domain name for accessing Nightscout (e.g., nightscout.example.com)"
   type        = string

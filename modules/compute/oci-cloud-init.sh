@@ -26,7 +26,7 @@ setup_nightscout_directory() {
 # Setup Swapfile
 #######################################
 setup_swapfile() {
-  sudo fallocate -l 4G /swapfile
+  sudo fallocate -l 8G /swapfile
   sudo chmod 600 /swapfile
   sudo mkswap /swapfile
   echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
@@ -61,11 +61,14 @@ install_oci_cli() {
   # Install Python, pip, and jq
   sudo yum install -y python3 python3-pip jq
 
-  # Install OCI CLI
-  bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)" -- --accept-all-defaults
+  # Install OCI CLI for the opc user
+  sudo -u opc bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)" -- --accept-all-defaults
 
   # Add to PATH for all users
   echo 'export PATH=$PATH:/home/opc/bin' | sudo tee -a /etc/profile
+
+  # Make sure opc user has the right PATH in their profile
+  echo 'export PATH=$PATH:/home/opc/bin' | sudo -u opc tee -a /home/opc/.bashrc
 }
 
 
@@ -132,9 +135,31 @@ SCRIPT
   # Create cron job for secret rotation (every 10 minutes)
   echo "*/10 * * * * /opt/nightscout/rotate-secrets.sh" | crontab -u opc -
 
+  # Wait for IAM policies to propagate before attempting secret fetch
+  echo_header "Waiting for IAM policies to propagate"
+  sleep 30
+
   # Run the script once initially to create the .env file
   echo_header "Running initial secret fetch"
-  /opt/nightscout/rotate-secrets.sh
+
+  # Retry the script a few times if it fails (policies might still be propagating)
+  retry_count=0
+  max_retries=3
+
+  while [[ $retry_count -lt $max_retries ]]; do
+    if /opt/nightscout/rotate-secrets.sh; then
+      echo_header "Secret fetch successful"
+      break
+    else
+      retry_count=$((retry_count + 1))
+      if [[ $retry_count -lt $max_retries ]]; then
+        echo_header "Secret fetch failed, retrying in 30 seconds (attempt $retry_count/$max_retries)"
+        sleep 30
+      else
+        echo_header "Secret fetch failed after $max_retries attempts"
+      fi
+    fi
+  done
 
   echo_header "Secret rotation setup completed"
 }

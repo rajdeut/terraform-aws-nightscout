@@ -2,13 +2,22 @@
 locals {
   # Split env content into lines and filter out comments/empty lines
   env_lines = [for line in split("\n", var.nightscout_env_content) :
-    trimspace(line) if trimspace(line) != "" && !startswith(trimspace(line), "#")]
+  trimspace(line) if trimspace(line) != "" && !startswith(trimspace(line), "#")]
 
-  # Parse key=value pairs
-  env_vars = { for line in local.env_lines :
+  # Parse key=value pairs from .env file
+  parsed_env_vars = { for line in local.env_lines :
     split("=", line)[0] => join("=", slice(split("=", line), 1, length(split("=", line))))
     if length(split("=", line)) >= 2
   }
+
+  # Default environment variables for Nightscout
+  default_env_vars = {
+    TRUST_PROXY       = "true"
+    INSECURE_USE_HTTP = "true"
+  }
+
+  # Merge parsed vars with defaults (parsed vars take precedence)
+  env_vars = merge(local.default_env_vars, local.parsed_env_vars)
 }
 
 # Create a KMS key for encrypting secrets

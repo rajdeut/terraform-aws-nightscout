@@ -16,8 +16,6 @@ services:
     image: nightscout/cgm-remote-monitor:latest
     environment:
       - PORT=1337
-      - TRUST_PROXY=true
-      - INSECURE_USE_HTTP=true
     env_file:
       - .env
     restart: unless-stopped

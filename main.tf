@@ -7,7 +7,6 @@ terraform {
   }
 }
 
-
 # ============================================================================
 # Local Configuration
 # ============================================================================
@@ -58,6 +57,7 @@ module "compute" {
   source = "./modules/compute"
 
   compartment_id      = module.compartment.compartment_id
+  tenancy_id          = module.compartment.tenancy_id
   subnet_id           = module.network.subnet_id
   ssh_public_key_path = var.ssh_public_key_path
   vault_id            = module.secrets.vault_id

@@ -5,7 +5,7 @@ data "oci_identity_availability_domains" "ads" {
 
 # Create dynamic group for the instance to access secrets
 resource "oci_identity_dynamic_group" "nightscout_dynamic_group" {
-  compartment_id = var.compartment_id
+  compartment_id = var.tenancy_id
   description    = "Dynamic group for Nightscout instance to access vault secrets"
   matching_rule  = "instance.id = '${oci_core_instance.nightscout.id}'"
   name           = "nightscout-instance-group"
@@ -15,7 +15,7 @@ resource "oci_identity_dynamic_group" "nightscout_dynamic_group" {
 
 # Create policy to allow the dynamic group to read secrets
 resource "oci_identity_policy" "nightscout_secrets_policy" {
-  compartment_id = var.compartment_id
+  compartment_id = var.tenancy_id
   description    = "Policy allowing Nightscout instance to read vault secrets"
   name           = "nightscout-secrets-policy"
 
