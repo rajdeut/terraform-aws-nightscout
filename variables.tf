@@ -6,8 +6,9 @@ variable "region" {
 }
 
 variable "domain" {
-  description = "Domain name for accessing Nightscout (e.g., nightscout.example.com)"
+  description = "Domain name for accessing Nightscout (e.g., nightscout.example.com). Leave empty to use IP-only access."
   type        = string
+  default     = ""
 }
 
 variable "ssh_public_key_path" {
