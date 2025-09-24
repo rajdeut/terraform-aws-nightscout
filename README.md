@@ -1,12 +1,13 @@
 # Terraform for Nightscout running on AWS (free-tier)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](./LICENSE)
 
-!!!  warning This project is no longer be maintained
-     An easier to deploy and "always-free" version of this project has been created to run on Oracle's Cloud Infrastructure.
-
-    Oracle's service has a free-tier that doesn't expire like Amazon.
-
-    You can view the Terraform OCI Nightscout project here: https://github.com/rajdeut/terraform-oci-nightscout
+> ⚠️  **WARNING: This project is no longer maintained**
+> 
+> An easier to deploy and "always-free" version of this project has been created to run on Oracle's Cloud Infrastructure.
+>
+> Oracle's service has a free-tier that doesn't expire like Amazon.
+> 
+> You can view the Terraform OCI Nightscout project here: https://github.com/rajdeut/terraform-oci-nightscout
 
 ### Description
 This Terraform project has been developed to deploy a Nightscout instance on AWS using free-tier resources that best replicate the operating experience of Heroku.
