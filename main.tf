@@ -13,6 +13,7 @@ locals {
     env = "prod"
     app = "nightscout"
   }
+  port = var.https ? 443 : 80
 }
 
 
@@ -21,6 +22,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket_prefix = "nightscout-codepipeline-"
   tags          = var.tags
 }
+
 # Set Bucker Ownership to apply ACL
 resource "aws_s3_bucket_ownership_controls" "codepipeline_bucket_ownership" {
   bucket = aws_s3_bucket.codepipeline_bucket.id
@@ -33,11 +35,11 @@ resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
   acl    = "private"
 }
 
-
 # Nightscout config in SSM
 module "ssm" {
   source = "./modules/ssm"
-  port   = var.port
+  port   = local.port
+  domain = var.domain
   tags   = local.tags
 }
 
@@ -64,6 +66,8 @@ module "ec2" {
   public_subnet_id      = module.vpc.public_subnet_id
   ssh_public_key_path   = var.ec2_ssh_public_key_path
   your_ip_address       = var.my_ip
+  port                  = local.port
+  domain                = var.domain
   instance_profile_name = module.ec2_role.instance_profile.name
   tags                  = local.tags
 }

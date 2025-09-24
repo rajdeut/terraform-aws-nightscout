@@ -1,14 +1,21 @@
 #!/bin/bash
 sudo yum update -y
 
+# Make a crontab (if doesnt exist)
+crontab -l; echo "# root crontab" | crontab -
+
+# LetsEncrypt
+[[LETSENCRYPT]]
+
 # Create tmp folder that mongo util needs
 mkdir /tmp/public
 
-# Add Node repo
-curl -fsSL https://rpm.nodesource.com/setup_14.x | bash -
-
 # Package installs
-sudo yum install nodejs git jq ruby wget -y
+sudo yum install git jq ruby wget -y
+
+# Node Install
+sudo yum install https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm -y
+sudo yum install nodejs -y --setopt=nodesource-nodejs.module_hotfixes=1
 
 # Code Agent install
 cd /home/ec2-user
@@ -67,4 +74,4 @@ sudo chmod +x /opt/codedeploy-agent/scripts/*.sh
 # Create cronjob that gets env vars from SSM every 10 minutes & restarts if changes
 # Removed, only get 20,000 calls to AWS Key Management Service per month & prev SSM was storing as SecureString.
 # I think we can revert this after updating SSM.
-crontab -l ; echo "*/10 * * * * sudo /opt/codedeploy-agent/scripts/cron_ssm.sh >/dev/null 2>&1" | crontab -
+(crontab -l && echo "*/10 * * * * sudo /opt/codedeploy-agent/scripts/cron_ssm.sh >/dev/null 2>&1") | crontab -
